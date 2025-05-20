@@ -3,19 +3,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Student Instrument</title>
+  <title>Advanced Student Instrument</title>
   <style>
     body {
       margin: 0;
-      font-family: sans-serif;
       background: #f0f0f0;
+      font-family: sans-serif;
     }
     .instrument {
       position: relative;
       max-width: 800px;
       margin: 20px auto;
     }
-    .background-img, .character-img {
+    .background-img {
       width: 100%;
       display: block;
     }
@@ -25,74 +25,112 @@
       left: 30%;
       width: 40%;
       pointer-events: none;
+      transition: transform 0.1s ease;
+    }
+    .character-container.shake {
+      animation: shake 0.4s;
+    }
+    .character-img {
+      width: 100%;
+      display: block;
+    }
+    @keyframes shake {
+      0%, 100% { transform: translate(0, 0); }
+      25% { transform: translate(-5px, 0); }
+      50% { transform: translate(5px, 0); }
+      75% { transform: translate(-5px, 0); }
     }
     .button {
       position: absolute;
-      background: rgba(255, 255, 0, 0.3);
-      border: 2px solid yellow;
+      background: rgba(0, 200, 255, 0.3);
+      border: 2px solid #00c8ff;
       border-radius: 10px;
       cursor: pointer;
     }
     .button:hover {
-      background: rgba(255, 255, 0, 0.6);
+      background: rgba(0, 200, 255, 0.6);
     }
   </style>
   <script src="https://unpkg.com/tone/build/Tone.js"></script>
 </head>
 <body>
 
-<h2 style="text-align:center;">🎵 Student Instrument (with Talking Character) 🎵</h2>
-<button onclick="startAudio()" style="display:block; margin: 20px auto;">🔊 Start Audio</button>
+<h2 style="text-align:center;">🎵 Advanced Student Instrument 🎵</h2>
 
 <div class="instrument">
   <img src="assets/background.jpg" alt="Instrument Background" class="background-img">
 
-  <!-- Character Overlay -->
-  <div class="character-container">
-    <img id="character-img" src="assets/character_idle.png" class="character-img" alt="Character">
+  <div class="character-container" id="character-container">
+    <img id="character-img" src="assets/idle.png" class="character-img" alt="Character">
   </div>
 
-  <!-- Clickable buttons -->
-  <div class="button" style="top: 70%; left: 20%; width: 15%; height: 20%;" onclick="playSound('C4')"></div>
-  <div class="button" style="top: 70%; left: 60%; width: 15%; height: 20%;" onclick="playSound('D4')"></div>
+  <!-- Sound zones -->
+  <div class="button" style="top: 70%; left: 10%; width: 15%; height: 20%;" onclick="playNote('C4')"></div>
+  <div class="button" style="top: 70%; left: 30%; width: 15%; height: 20%;" onclick="playNote('D4')"></div>
+  <div class="button" style="top: 70%; left: 50%; width: 15%; height: 20%;" onclick="playNote('E4')"></div>
+  <div class="button" style="top: 70%; left: 70%; width: 15%; height: 20%;" onclick="playNote('F4')"></div>
 </div>
 
 <script>
-  let samplerReady = false;
-  let characterImg = document.getElementById("character-img");
+  const characterImg = document.getElementById("character-img");
+  const characterContainer = document.getElementById("character-container");
+
+  const noteToImage = {
+    "C4": "assets/talk_C4.png",
+    "D4": "assets/talk_D4.png",
+    "E4": "assets/talk_E4.png",
+    "F4": "assets/talk_F4.png"
+  };
 
   const sampler = new Tone.Sampler({
     "C4": "assets/sound1.mp3",
-    "D4": "assets/sound2.mp3"
+    "D4": "assets/sound2.mp3",
+    "E4": "assets/sound3.mp3",
+    "F4": "assets/sound4.mp3"
   }, () => {
-    samplerReady = true;
-    console.log("Sampler is ready!");
+    console.log("Sampler ready.");
   }).toDestination();
 
-  async function startAudio() {
-    await Tone.start();
-    console.log("Audio context started");
-    alert("Audio started! Now click the buttons.");
+  function playNote(note) {
+    characterImg.src = noteToImage[note] || "assets/idle.png";
+    characterContainer.classList.add("shake");
+    setTimeout(() => {
+      characterImg.src = "assets/idle.png";
+      characterContainer.classList.remove("shake");
+    }, 600);
+    sampler.triggerAttackRelease(note, "2n");
   }
 
-  async function playSound(note) {
-    try {
-      await Tone.start();
-      if (!samplerReady) {
-        console.log("Sampler not ready yet.");
-        return;
-      }
-      // Change image to talking version
-      characterImg.src = "assets/character_talking.png";
-      sampler.triggerAttackRelease(note, "2n");
+  // Keyboard input
+  const keyMap = {
+    "a": "C4",
+    "s": "D4",
+    "d": "E4",
+    "f": "F4"
+  };
 
-      // Revert to idle after short delay
-      setTimeout(() => {
-        characterImg.src = "assets/character_idle.png";
-      }, 600);
-    } catch (err) {
-      console.error("Playback error:", err);
+  document.addEventListener("keydown", (e) => {
+    const note = keyMap[e.key.toLowerCase()];
+    if (note) {
+      playNote(note);
     }
+  });
+
+  // MIDI input
+  if (navigator.requestMIDIAccess) {
+    navigator.requestMIDIAccess().then(midi => {
+      midi.inputs.forEach(input => {
+        input.onmidimessage = (msg) => {
+          const [type, note, velocity] = msg.data;
+          if (type === 144 && velocity > 0) {
+            const noteName = Tone.Frequency(note, "midi").toNote();
+            if (sampler.has(noteName)) {
+              playNote(noteName);
+            }
+          }
+        };
+      });
+    });
   }
 </script>
 
